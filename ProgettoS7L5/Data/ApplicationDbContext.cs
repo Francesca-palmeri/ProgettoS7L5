@@ -13,9 +13,31 @@ namespace ProgettoS7L5.Data
       
         public DbSet<ApplicationUser> ApplicationUsers { get; set; }
         public DbSet<ApplicationRole> ApplicationRoles { get; set; }
+
+        public DbSet<Artista> Artisti { get; set; }
+        public DbSet<Evento> Eventi { get; set; }
+        public DbSet<Biglietto> Biglietti { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Relazione Artista - Evento: Un Artista può essere associato a più Eventi
+            modelBuilder.Entity<Evento>()
+                .HasOne(e => e.Artista)  // Ogni Evento ha un Artista
+                .WithMany(a => a.Eventi)  // Un Artista può avere molti Eventi
+                .HasForeignKey(e => e.ArtistaId);  // La chiave esterna in Evento
+
+            // Relazione Evento - Biglietto: Un Evento può avere più Biglietti
+            modelBuilder.Entity<Biglietto>()
+                .HasOne(b => b.Evento)  // Ogni Biglietto è associato a un Evento
+                .WithMany(e => e.Biglietti)  // Un Evento può avere più Biglietti
+                .HasForeignKey(b => b.EventoId);  // La chiave esterna in Biglietto
+
+            // Relazione ApplicationUser - Biglietto: Un ApplicationUser può acquistare più Biglietti
+            modelBuilder.Entity<Biglietto>()
+                .HasOne(b => b.ApplicationUser)  // Ogni Biglietto è associato a un ApplicationUser
+                .WithMany(u => u.Biglietti)  // Un ApplicationUser può avere più Biglietti
+                .HasForeignKey(b => b.UserId);  // La chiave esterna in Biglietto
 
             modelBuilder.Entity<ApplicationUserRole>(userRole => {
                 userRole.HasKey(ur => new { ur.UserId, ur.RoleId });

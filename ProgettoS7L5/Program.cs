@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using ProgettoS7L5.Data;
 using ProgettoS7L5.Models;
 
@@ -9,46 +12,54 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options => 
 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
-{
-    // Imposta se l'account deve essere confermato via email prima di poter accedere
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options => {
     options.SignIn.RequireConfirmedAccount =
-       builder.Configuration.GetSection("Identity").GetValue<bool>("RequireConfirmedAccount");
-
-    // Imposta la lunghezza minima della password
+        builder.Configuration.GetValue<bool>("Identity:RequireConfirmedAccount");
     options.Password.RequiredLength =
-        builder.Configuration.GetSection("Identity").GetValue<int>("RequiredLength");
-
-    // Richiede che la password contenga almeno un numero
+        builder.Configuration.GetValue<int>("Identity:RequiredLength");
     options.Password.RequireDigit =
-        builder.Configuration.GetSection("Identity").GetValue<bool>("RequireDigit");
-
-    // Richiede almeno una lettera minuscola nella password
+        builder.Configuration.GetValue<bool>("Identity:RequireDigit");
     options.Password.RequireLowercase =
-        builder.Configuration.GetSection("Identity").GetValue<bool>("RequireLowercase");
-
-    // Richiede almeno un carattere speciale nella password
+        builder.Configuration.GetValue<bool>("Identity:RequireLowercase");
     options.Password.RequireNonAlphanumeric =
-        builder.Configuration.GetSection("Identity").GetValue<bool>("RequireNonAlphanumeric");
-
-    // Richiede almeno una lettera maiuscola nella password
+        builder.Configuration.GetValue<bool>("Identity:RequireNonAlphanumeric");
     options.Password.RequireUppercase =
-        builder.Configuration.GetSection("Identity").GetValue<bool>("RequireUppercase");
+        builder.Configuration.GetValue<bool>("Identity:RequireUppercase");
 })
-    // Utilizza il contesto del database per archiviare utenti e ruoli
-    .AddEntityFrameworkStores<ApplicationDbContext>()
-    // Aggiunge provider di token predefiniti per la gestione delle autenticazioni e conferme
-    .AddDefaultTokenProviders();
+   .AddEntityFrameworkStores<ApplicationDbContext>()
+   .AddDefaultTokenProviders();
 
+builder.Services.AddAuthentication(
+    options => {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+     .AddJwtBearer(options => {
+         options.TokenValidationParameters = new TokenValidationParameters
+         {
+             ValidateIssuer = true,
+             ValidateAudience = true,
+             ValidateLifetime = true,
+             ValidateIssuerSigningKey = true,
+             ValidIssuer = builder.Configuration["Jwt:Issuer"],
+             ValidAudience = builder.Configuration["Jwt:Audience"],
+             IssuerSigningKey = new SymmetricSecurityKey(
+                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SecurityKey"]))
+         };
+     });
 
-// Add services to the container.
-
+builder.Services.AddScoped<UserManager<ApplicationUser>>();
+builder.Services.AddScoped<SignInManager<ApplicationUser>>();
+builder.Services.AddScoped<RoleManager<ApplicationRole>>();
 builder.Services.AddControllers();
+
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -59,6 +70,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
